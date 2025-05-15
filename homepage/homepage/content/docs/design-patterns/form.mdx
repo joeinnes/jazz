@@ -2,23 +2,18 @@ export const metadata = { title: "Form design pattern" };
 
 import { CodeGroup } from "@/components/forMdx";
 
-# Creating and updating CoValues in a form
+# How to write autosaving forms to create and update CoValues
 
-Normally, we implement forms using
-[the onSubmit handler](https://react.dev/reference/react-dom/components/form#handle-form-submission-on-the-client),
-or by making [a controlled form with useState](https://christinakozanian.medium.com/building-controlled-forms-with-usestate-in-react-f9053ad255a0),
-or by using special libraries like [react-hook-form](https://www.react-hook-form.com).
+This guide shows you a simple and powerful way to implement forms for creating and updating CoValues.
 
-In Jazz, we can do something simpler and more powerful, because CoValues give us reactive,
-persisted state which we can use to directly edit live objects. This lets us:
-1. Remove the need for a save button on update forms.
-2. Represent auto-saved drafts.
+We'll build:
+1. An update form that saves changes as you make them, removing the need for a save button.
+2. A create form that autosaves your changes into a draft, so you can come back to it later.
 
 [See the full example here.](https://github.com/garden-co/jazz/tree/main/examples/form)
 
-**Note**: If you do need a save button on your update form, this design pattern is not for you.
-One option is to use react-hook-form, which is used in the
-[password manager example](https://github.com/garden-co/jazz/tree/main/examples/password-manager).
+**Note**: If you do need a save button on your update form, this guide is not for you. Another option
+is to use [react-hook-form](https://www.react-hook-form.com), which you can see in [this example](https://github.com/garden-co/jazz/tree/main/examples/password-manager).
 
 ## Updating a CoValue
 
