@@ -36,7 +36,7 @@ export default function ImageUpload() {
 
       try {
         me.profile.image = await createImage(file, {
-          owner: me.profile._owner,
+          owner: me.profile._owner
         });
       } catch (error) {
         console.error("Error uploading image:", error);
