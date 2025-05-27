@@ -27,6 +27,14 @@ Run the dev server.
 npm run dev
 ```
 
+If you want to persist the cursors between server restarts, you'll need to update your .env file. Check your console logs for the correct values to add to your .env file.
+
+```
+VITE_CURSOR_FEED_ID=
+VITE_GROUP_ID=
+VITE_OLD_CURSOR_AGE_SECONDS=5
+```
+
 ### Using the monorepo
 
 This requires `pnpm` to be installed, see [https://pnpm.io/installation](https://pnpm.io/installation).
@@ -52,6 +60,15 @@ pnpm dev
 ```
 
 Open [http://localhost:5173](http://localhost:5173) with your browser to see the result.
+
+If you want to persist the cursors between server restarts, you'll need to update your .env file. Check your console logs for the correct values to add to your .env file.
+
+```
+VITE_CURSOR_FEED_ID=
+VITE_GROUP_ID=
+VITE_OLD_CURSOR_AGE_SECONDS=5
+```
+
 
 ## Questions / problems / feedback
 

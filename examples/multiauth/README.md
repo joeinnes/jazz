@@ -15,9 +15,21 @@ To run this example, you may either:
 ```bash
 npx create-jazz-app@latest multiauth-app --example multiauth
 ```
-2. Navigate to the new project and start the development server.
+
+2. Navigate to the new project.
 ```bash
 cd multiauth-app
+```
+
+3. Rename .env.example to .env
+```bash
+mv .env.example .env
+```
+
+4. Update `VITE_CLERK_PUBLISHABLE_KEY` with your [Publishable Key](https://clerk.com/docs/deployments/clerk-environment-variables#clerk-publishable-and-secret-keys) from Clerk.
+
+5. Run the development server
+```bash
 npm run dev
 ```
 
@@ -29,14 +41,27 @@ This requires `pnpm` to be installed; see [https://pnpm.io/installation](https:/
 ```bash
 git clone https://github.com/garden-co/jazz.git
 ```
+
 2. Install dependencies.
 ```bash
 cd jazz
 pnpm install
 ```
+
 3. Navigate to the example and start the development server.
 ```bash
 cd examples/multiauth
+```
+
+4. Rename .env.example to .env
+```bash
+mv .env.example .env
+```
+
+5. Update `VITE_CLERK_PUBLISHABLE_KEY` with your [Publishable Key](https://clerk.com/docs/deployments/clerk-environment-variables#clerk-publishable-and-secret-keys) from Clerk.
+
+6. Run the development server
+```bash
 pnpm dev
 ```
 

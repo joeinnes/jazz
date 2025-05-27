@@ -69,6 +69,7 @@ export async function loadCursorContainer(
       },
     );
     console.log("Created global cursors", cursorContainer.id);
+    console.log(`Add "VITE_CURSOR_FEED_ID=${group.id}" to your .env file`);
     if (cursorContainer.cursorFeed === null) {
       throw new Error("cursorFeed is null");
     }

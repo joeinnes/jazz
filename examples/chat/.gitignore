@@ -1,3 +1,6 @@
+# Node.js dependencies
+node_modules/
+
 # Logs
 logs
 *.log
@@ -7,25 +10,67 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
+# Build outputs
+dist/
+dist-ssr/
+build/
+web-build/
+.output
+.vercel
+.svelte-kit
+/build
+
+# TypeScript
+*.tsbuildinfo
+
+# Environment files
+.env
+.env.*
+!.env.example
+!.env.test
+
+# OS-specific files
+.DS_Store
+Thumbs.db
 
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
 .idea
-.DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
 
-sync-db/
-
+# Playwright
 /test-results/
 /playwright-report/
-/blob-report/
-/playwright/.cache/
+
+# Expo
+.expo/
+.metro-health-check*
+
+# iOS/Android
+ios/
+android/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+
+# Fastlane
+**/fastlane/report.xml
+
+# Vite
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# Miscellaneous
+coverage
+__screenshots__
+*.hprof
+.cxx/
+.kotlin/

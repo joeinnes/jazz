@@ -20,12 +20,24 @@ To run this example, you may either:
 ```sh
 npx create-jazz-app@latest betterauth-app --example betterauth
 ```
-2. Navigate to the new project and start the development server.
+
+2. Navigate to the new project and install dependencies.
 ```sh
 cd betterauth-app
 pnpm install
+```
+
+3. Create a .env file (don't forget to set your [BETTER_AUTH_SECRET](https://www.better-auth.com/docs/installation#set-environment-variables)!)
+```sh
+mv .env.example .env
+```
+
+4. Start the development server
+```sh
 pnpm dev
 ```
+
+https://www.better-auth.com/docs/installation#set-environment-variables
 
 ### Using the monorepo
 
@@ -44,6 +56,11 @@ pnpm i && npx turbo build
 Go to the example directory.
 ```bash
 cd jazz/examples/betterauth/
+```
+
+Create a .env file (don't forget to set your [BETTER_AUTH_SECRET](https://www.better-auth.com/docs/installation#set-environment-variables)!)
+```sh
+mv .env.example .env
 ```
 
 Start the dev server.

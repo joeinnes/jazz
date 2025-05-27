@@ -23,6 +23,13 @@ Go to the new project directory.
 cd clerk-app
 ```
 
+Rename .env.example to .env
+```bash
+mv .env.example .env
+```
+
+Update `VITE_CLERK_PUBLISHABLE_KEY` with your [Publishable Key](https://clerk.com/docs/deployments/clerk-environment-variables#clerk-publishable-and-secret-keys) from Clerk.
+
 Run the dev server.
 ```bash
 npm run dev
@@ -46,6 +53,13 @@ Go to the example directory.
 ```bash
 cd jazz/examples/clerk/
 ```
+
+Rename .env.example to .env
+```bash
+mv .env.example .env
+```
+
+Update `VITE_CLERK_PUBLISHABLE_KEY` with your [Publishable Key](https://clerk.com/docs/deployments/clerk-environment-variables#clerk-publishable-and-secret-keys) from Clerk.
 
 Start the dev server.
 ```bash
