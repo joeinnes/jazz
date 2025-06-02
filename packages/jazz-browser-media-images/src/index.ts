@@ -6,27 +6,62 @@ import {
   ImageDefinition,
   Loaded,
 } from "jazz-tools";
+
 import Pica from "pica";
 
 let pica: Pica.Pica | undefined;
 
-/** @category Image creation */
+/**
+ * Creates an image definition with multiple resolutions and a placeholder.
+ * 
+ * This function processes an image (provided as a `Blob` or `File`) and generates:
+ * - A placeholder image (8px wide).
+ * - Multiple resized versions of the image based on the specified `maxSize` or `resolutions`.
+ * - An `ImageDefinition` object containing the original image size, placeholder, and resized versions.
+ *
+ * @category Image creation
+ * 
+ * @param {Blob | File} imageBlobOrFile - The image file or blob to process.
+ * @param {Object} [options] - Optional parameters for image creation.
+ * @param {Group | Account} [options.owner] - The owner of the image, either a group or an account.
+ * @param {256 | 1024 | 2048} [options.maxSize] - The maximum resolution size to generate. If specified, `resolutions` must be `undefined`.
+ * @param {number[]} [options.resolutions] - A list of resolutions to generate for the image. If specified, `maxSize` must be `undefined`.
+ * @returns {Promise<Loaded<typeof ImageDefinition>>} A promise that resolves to the created `ImageDefinition` object.
+ * 
+ * @throws {Error} If both `maxSize` and `resolutions` are specified.
+ * 
+ * @example
+ * // Example 1: Using maxSize
+ * const imageDefinition = await createImage(imageBlob, { maxSize: 1024 });
+ * 
+ * @example
+ * // Example 2: Using resolutions
+ * const imageDefinition = await createImage(imageBlob, { resolutions: [256, 512, 1024] });
+ * 
+ * @example
+ * // Example 3: Without maxSize or resolutions
+ * const imageDefinition = await createImage(imageBlob);
+ */
 export async function createImage(
   imageBlobOrFile: Blob | File,
   options?: {
     owner?: Group | Account;
-    maxSize?: 256 | 1024 | 2048;
-  },
+  } & (
+      | { maxSize: 256 | 1024 | 2048; resolutions?: never }
+      | { resolutions: number[]; maxSize?: never }
+      | { resolutions?: undefined; maxSize?: undefined }
+    ),
 ): Promise<Loaded<typeof ImageDefinition>> {
-  // Inizialize Pica here to not have module side effects
+  if (options?.maxSize !== undefined && options?.resolutions !== undefined) {
+    throw new Error("You cannot specify both `maxSize` and `resolutions` at the same time.");
+  }
   if (!pica) {
     pica = new Pica();
   }
 
-  const owner = options?.owner;
-
   let originalWidth!: number;
   let originalHeight!: number;
+
   const Reducer = new ImageBlobReduce({ pica });
   Reducer.after("_blob_to_image", (env) => {
     originalWidth =
@@ -40,9 +75,9 @@ export async function createImage(
     return Promise.resolve(env);
   });
 
-  const placeholderDataURL = (
-    await Reducer.toCanvas(imageBlobOrFile, { max: 8 })
-  ).toDataURL("image/png");
+  const owner = options?.owner;
+
+  const placeholderDataURL = (await Reducer.toCanvas(imageBlobOrFile, { max: 8 })).toDataURL("image/png");
 
   const imageDefinition = ImageDefinition.create(
     {
@@ -53,79 +88,32 @@ export async function createImage(
   );
 
   const fillImageResolutions = async () => {
-    const max256 = await Reducer.toBlob(imageBlobOrFile, { max: 256 });
-
-    if (originalWidth > 256 || originalHeight > 256) {
-      const width =
-        originalWidth > originalHeight
-          ? 256
-          : Math.round(256 * (originalWidth / originalHeight));
-      const height =
-        originalHeight > originalWidth
-          ? 256
-          : Math.round(256 * (originalHeight / originalWidth));
-
-      const binaryStream = await FileStream.createFromBlob(max256, owner);
-
-      imageDefinition[`${width}x${height}`] = binaryStream;
+    let imageResolutions: number[];
+    if (options && options.resolutions) {
+      imageResolutions = options.resolutions;
+    } else if (options && options.maxSize) {
+      imageResolutions = [256, 1024, 2048].filter((res) => res <= options.maxSize);
+    } else {
+      imageResolutions = [256, 1024, 2048];
     }
 
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
-    if (options?.maxSize === 256) return;
-
-    const max1024 = await Reducer.toBlob(imageBlobOrFile, { max: 1024 });
-
-    if (originalWidth > 1024 || originalHeight > 1024) {
+    for (let resolution of imageResolutions.sort()) {
       const width =
         originalWidth > originalHeight
-          ? 1024
-          : Math.round(1024 * (originalWidth / originalHeight));
+          ? resolution
+          : Math.round(resolution * (originalWidth / originalHeight));
       const height =
         originalHeight > originalWidth
-          ? 1024
-          : Math.round(1024 * (originalHeight / originalWidth));
-
-      const binaryStream = await FileStream.createFromBlob(max1024, owner);
-
+          ? resolution
+          : Math.round(resolution * (originalHeight / originalWidth));
+      const resizedImage = await Reducer.toBlob(imageBlobOrFile, { max: Math.max(width, height) });
+      const binaryStream = await FileStream.createFromBlob(resizedImage, owner);
       imageDefinition[`${width}x${height}`] = binaryStream;
+
+      await new Promise((resolve) => setTimeout(resolve, 0));
     }
-
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
-    if (options?.maxSize === 1024) return;
-
-    const max2048 = await Reducer.toBlob(imageBlobOrFile, { max: 2048 });
-
-    if (originalWidth > 2048 || originalHeight > 2048) {
-      const width =
-        originalWidth > originalHeight
-          ? 2048
-          : Math.round(2048 * (originalWidth / originalHeight));
-      const height =
-        originalHeight > originalWidth
-          ? 2048
-          : Math.round(2048 * (originalHeight / originalWidth));
-
-      const binaryStream = await FileStream.createFromBlob(max2048, owner);
-
-      imageDefinition[`${width}x${height}`] = binaryStream;
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
-    if (options?.maxSize === 2048) return;
-
-    const originalBinaryStream = await FileStream.createFromBlob(
-      imageBlobOrFile,
-      owner,
-    );
-
-    imageDefinition[`${originalWidth}x${originalHeight}`] =
-      originalBinaryStream;
   };
 
   await fillImageResolutions();
-
   return imageDefinition;
 }
