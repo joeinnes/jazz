@@ -7,9 +7,7 @@ import {
   Loaded,
 } from "jazz-tools";
 
-import Pica from "pica";
-
-let pica: Pica.Pica | undefined;
+import { Image } from 'image-js'
 
 /**
  * Creates an image definition with multiple resolutions and a placeholder.
@@ -55,29 +53,16 @@ export async function createImage(
   if (options?.maxSize !== undefined && options?.resolutions !== undefined) {
     throw new Error("You cannot specify both `maxSize` and `resolutions` at the same time.");
   }
-  if (!pica) {
-    pica = new Pica();
-  }
 
-  let originalWidth!: number;
-  let originalHeight!: number;
 
-  const Reducer = new ImageBlobReduce({ pica });
-  Reducer.after("_blob_to_image", (env) => {
-    originalWidth =
-      (env as unknown as { orientation: number }).orientation & 4
-        ? env.image.height
-        : env.image.width;
-    originalHeight =
-      (env as unknown as { orientation: number }).orientation & 4
-        ? env.image.width
-        : env.image.height;
-    return Promise.resolve(env);
-  });
+  const image = await Image.load(imageBlobOrFile instanceof Blob ? await imageBlobOrFile.arrayBuffer() : imageBlobOrFile);
+  const imageType = imageBlobOrFile.type || "image/png"; // Assume PNG if type is not specified
+  const originalWidth = image.width;
+  const originalHeight = image.height;
 
   const owner = options?.owner;
 
-  const placeholderDataURL = (await Reducer.toCanvas(imageBlobOrFile, { max: 8 })).toDataURL("image/png");
+  const placeholderDataURL = image.resize({ width: originalWidth >= originalHeight ? 8 : undefined, height: originalHeight >= originalWidth ? 8 : undefined }).toDataURL();
 
   const imageDefinition = ImageDefinition.create(
     {
@@ -106,7 +91,7 @@ export async function createImage(
         originalHeight > originalWidth
           ? resolution
           : Math.round(resolution * (originalHeight / originalWidth));
-      const resizedImage = await Reducer.toBlob(imageBlobOrFile, { max: Math.max(width, height) });
+      const resizedImage = await image.resize({ width, height }).toBlob(imageType, 0.8); // Hardcode 0.8?
       const binaryStream = await FileStream.createFromBlob(resizedImage, owner);
       imageDefinition[`${width}x${height}`] = binaryStream;
 
