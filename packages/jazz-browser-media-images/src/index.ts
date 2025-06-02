@@ -1,4 +1,3 @@
-import ImageBlobReduce from "image-blob-reduce";
 import {
   Account,
   FileStream,
@@ -7,7 +6,8 @@ import {
   Loaded,
 } from "jazz-tools";
 
-import { Image } from 'image-js'
+// @ts-ignore
+import ModernResize from "./modernResize.js";
 
 /**
  * Creates an image definition with multiple resolutions and a placeholder.
@@ -54,15 +54,19 @@ export async function createImage(
     throw new Error("You cannot specify both `maxSize` and `resolutions` at the same time.");
   }
 
-
-  const image = await Image.load(imageBlobOrFile instanceof Blob ? await imageBlobOrFile.arrayBuffer() : imageBlobOrFile);
   const imageType = imageBlobOrFile.type || "image/png"; // Assume PNG if type is not specified
-  const originalWidth = image.width;
-  const originalHeight = image.height;
-
+  const { width, height } = await getImageDimensionsFromBlob(imageBlobOrFile);
+  const originalWidth = width;
+  const originalHeight = height;
   const owner = options?.owner;
+  const scale = 8 / Math.max(originalWidth, originalHeight);
+  const targetWidth = Math.round(originalWidth * scale);
+  const targetHeight = Math.round(originalHeight * scale);
+  const resizer = new ModernResize()
+  const canvas = resizer.createCanvas(targetWidth, targetHeight);
 
-  const placeholderDataURL = image.resize({ width: originalWidth >= originalHeight ? 8 : undefined, height: originalHeight >= originalWidth ? 8 : undefined }).toDataURL();
+  const placeholder = await resizer.resizeFromFile(imageBlobOrFile, canvas);
+  const placeholderDataURL = placeholder.toDataURL(imageType, 0.8);
 
   const imageDefinition = ImageDefinition.create(
     {
@@ -91,7 +95,10 @@ export async function createImage(
         originalHeight > originalWidth
           ? resolution
           : Math.round(resolution * (originalHeight / originalWidth));
-      const resizedImage = await image.resize({ width, height }).toBlob(imageType, 0.8); // Hardcode 0.8?
+      const resizer = new ModernResize()
+      const canvas = resizer.createCanvas(width, height);
+      const resizedCanvas = await resizer.resizeFromFile(imageBlobOrFile, canvas)
+      const resizedImage = await canvasToBlob(resizedCanvas, imageType, 0.8); // Hardcode 0.8?
       const binaryStream = await FileStream.createFromBlob(resizedImage, owner);
       imageDefinition[`${width}x${height}`] = binaryStream;
 
@@ -101,4 +108,35 @@ export async function createImage(
 
   await fillImageResolutions();
   return imageDefinition;
+}
+
+async function getImageDimensionsFromBlob(blob: Blob | File): Promise<{ width: number; height: number }> {
+  const url = URL.createObjectURL(blob);
+  const img = new Image();
+
+  return new Promise((resolve, reject) => {
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    };
+
+    img.onerror = (err) => {
+      URL.revokeObjectURL(url);
+      reject(err);
+    };
+
+    img.src = url;
+  });
+}
+
+function canvasToBlob(canvas: HTMLCanvasElement, type = 'image/png', quality = 0.92): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) {
+        resolve(blob);
+      } else {
+        reject(new Error('Canvas toBlob() failed'));
+      }
+    }, type, quality);
+  });
 }
