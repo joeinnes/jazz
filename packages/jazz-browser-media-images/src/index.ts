@@ -6,9 +6,7 @@ import {
   Loaded,
 } from "jazz-tools";
 
-// @ts-ignore
-import ModernResize from "./modernResize.js";
-
+import { resize } from 'pica-gpu'
 /**
  * Creates an image definition with multiple resolutions and a placeholder.
  * 
@@ -54,79 +52,106 @@ export async function createImage(
     throw new Error("You cannot specify both `maxSize` and `resolutions` at the same time.");
   }
 
-  const imageType = imageBlobOrFile.type || "image/png"; // Assume PNG if type is not specified
-  const { width, height } = await getImageDimensionsFromBlob(imageBlobOrFile);
-  const originalWidth = width;
-  const originalHeight = height;
-  const owner = options?.owner;
-  const scale = 8 / Math.max(originalWidth, originalHeight);
-  const targetWidth = Math.round(originalWidth * scale);
-  const targetHeight = Math.round(originalHeight * scale);
-  const resizer = new ModernResize()
-  const canvas = resizer.createCanvas(targetWidth, targetHeight);
+  if (!imageBlobOrFile || imageBlobOrFile.size === 0) {
+    throw new Error("Invalid image file provided");
+  }
 
-  const placeholder = await resizer.resizeFromFile(imageBlobOrFile, canvas);
-  const placeholderDataURL = placeholder.toDataURL(imageType, 0.8);
+  const imageType = imageBlobOrFile.type || "image/png";
+  const imageBitmap = await createImageBitmap(imageBlobOrFile);
+  // Create reusable canvases
+  const webglCanvas = document.createElement('canvas');
+  const canvas2d = document.createElement('canvas');
 
-  const imageDefinition = ImageDefinition.create(
-    {
-      originalSize: [originalWidth, originalHeight],
-      placeholderDataURL,
-    },
-    owner,
-  );
+  try {
+    const originalWidth = imageBitmap.width;
+    const originalHeight = imageBitmap.height;
+    const owner = options?.owner;
 
-  const fillImageResolutions = async () => {
+    // Helper function to resize and flip
+    const resizeAndFlip = async (targetWidth: number, targetHeight: number): Promise<HTMLCanvasElement> => {
+      // Resize with WebGL canvas
+      webglCanvas.width = targetWidth;
+      webglCanvas.height = targetHeight;
+
+      try {
+        resize(imageBitmap, webglCanvas, {
+          targetHeight,
+          targetWidth,
+          filter: "mks2013"
+        });
+      } catch (error) {
+        console.error(error);
+        throw new Error(`Failed to resize image to ${targetWidth}x${targetHeight}`);
+      }
+
+      // Flip the result using 2D canvas (due to WebGL and 2D having inverted Y axes)
+      canvas2d.width = targetWidth;
+      canvas2d.height = targetHeight;
+      const ctx = canvas2d.getContext('2d');
+      if (!ctx) throw new Error("2D context not available");
+
+      // Clear any previous transforms
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      // Flip vertically
+      ctx.scale(1, -1);
+      ctx.drawImage(webglCanvas, 0, -targetHeight);
+
+      return canvas2d;
+    };
+
+    const scale = 8 / Math.max(originalWidth, originalHeight);
+    const placeholderWidth = Math.round(originalWidth * scale);
+    const placeholderHeight = Math.round(originalHeight * scale);
+
+    await resizeAndFlip(placeholderWidth, placeholderHeight);
+    const placeholderDataURL = canvas2d.toDataURL(imageType, 0.8);
+
+    const imageDefinition = ImageDefinition.create(
+      {
+        originalSize: [originalWidth, originalHeight],
+        placeholderDataURL,
+      },
+      owner,
+    );
+
     let imageResolutions: number[];
-    if (options && options.resolutions) {
+    if (options?.resolutions) {
       imageResolutions = options.resolutions;
-    } else if (options && options.maxSize) {
+    } else if (options?.maxSize) {
       imageResolutions = [256, 1024, 2048].filter((res) => res <= options.maxSize);
     } else {
       imageResolutions = [256, 1024, 2048];
     }
 
-    for (let resolution of imageResolutions.sort()) {
-      const width =
-        originalWidth > originalHeight
-          ? resolution
-          : Math.round(resolution * (originalWidth / originalHeight));
-      const height =
-        originalHeight > originalWidth
-          ? resolution
-          : Math.round(resolution * (originalHeight / originalWidth));
-      const resizer = new ModernResize()
-      const canvas = resizer.createCanvas(width, height);
-      const resizedCanvas = await resizer.resizeFromFile(imageBlobOrFile, canvas)
-      const resizedImage = await canvasToBlob(resizedCanvas, imageType, 0.8); // Hardcode 0.8?
+    // Generate image resolutions
+    for (const resolution of imageResolutions.sort()) {
+      const width = originalWidth > originalHeight
+        ? resolution
+        : Math.round(resolution * (originalWidth / originalHeight));
+      const height = originalHeight > originalWidth
+        ? resolution
+        : Math.round(resolution * (originalHeight / originalWidth));
+
+      // Never upscale
+      if (width > originalWidth || height > originalHeight) continue;
+
+      await resizeAndFlip(width, height);
+      const resizedImage = await canvasToBlob(canvas2d, imageType, 0.8);
       const binaryStream = await FileStream.createFromBlob(resizedImage, owner);
       imageDefinition[`${width}x${height}`] = binaryStream;
 
+      // Don't block
       await new Promise((resolve) => setTimeout(resolve, 0));
     }
-  };
 
-  await fillImageResolutions();
-  return imageDefinition;
-}
-
-async function getImageDimensionsFromBlob(blob: Blob | File): Promise<{ width: number; height: number }> {
-  const url = URL.createObjectURL(blob);
-  const img = new Image();
-
-  return new Promise((resolve, reject) => {
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      resolve({ width: img.naturalWidth, height: img.naturalHeight });
-    };
-
-    img.onerror = (err) => {
-      URL.revokeObjectURL(url);
-      reject(err);
-    };
-
-    img.src = url;
-  });
+    return imageDefinition;
+  } finally {
+    imageBitmap.close();
+    webglCanvas.width = 0;
+    webglCanvas.height = 0;
+    canvas2d.width = 0;
+    canvas2d.height = 0;
+  }
 }
 
 function canvasToBlob(canvas: HTMLCanvasElement, type = 'image/png', quality = 0.92): Promise<Blob> {
